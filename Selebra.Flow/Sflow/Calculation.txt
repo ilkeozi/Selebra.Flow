@@ -1,0 +1,46 @@
+﻿ Hello Mandip,
+
+Actually you don't need anything from the counter-samples in order to
+scale the flow-samples correctly. This question has come up before
+on the mailing list. It is covered in some detail by the paper
+"Packet Sampling Basics" here:
+http://www.sflow.org/packetSamplingBasics/index.htm
+
+...but essentially all you need to do is accumulate successive
+increases in the "sample_pool" variable, and use that to infer the
+effective sampling ratio for that data-source, over the time interval
+of your choice:
+
+   effective_sampling_ratio = delta(sample_pool) / samples_received
+   frames(X) = samples_received(X) * effective_sampling_ratio
+
+where:
+   * - sample_pool is a counter in the flow-sample header (see spec
+for details)
+   * - samples_received is the number of samples that were
+successfully received at the collector
+   * - frames(X) is the number of samples that fall into a particular
+category, such as being from a particular source IP address
+
+example
+=======
+So let's imagine that a particular data-source has been configured to
+sample at 1-in-512, and you received 100 flow-samples in 1 minute,
+and between the first sample and the last sample the samplePool
+increased from, say, 120,332 to 172,332 (an increase of 52,000), and
+of those 100 samples, 50 were from the IP source address 10.2.3.4:
+
+effective_sampling_ratio = 52000 / 100 = 520
+frames(10.2.3.4) = 50 * 520 = 26,000
+
+Notes:
+1. If you do it this way, then it's OK for some sFlow packets to be
+lost (just changes the effective sampling ratio).
+2. The sample-pool counter will wrap, and may occasionally be reset
+to 0, so treat it the same way as you would treat any other 32-bit
+counter.
+3. To get from frames to bytes, you can multiply by the average
+packet size (as computed from the received samples).
+
+Hope this helps,
+neil 
